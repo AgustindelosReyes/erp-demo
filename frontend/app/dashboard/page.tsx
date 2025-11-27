@@ -1,10 +1,31 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { StockCard } from "@/components/stock-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, TrendingUp, Users } from "lucide-react"
+import { useAuth } from '@/lib/auth-context'
 
 export default function DashboardPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading) {
+    return <div>Cargando...</div>
+  }
+
+  if (!user) {
+    return null
+  }
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <Sidebar />

@@ -34,8 +34,8 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         // Roles
-        $admin = Role::firstOrCreate(['name' => 'Admin']);
-        $usuario = Role::firstOrCreate(['name' => 'Usuario']);
+        $admin = Role::firstOrCreate(['name' => 'admin']);
+        $usuario = Role::firstOrCreate(['name' => 'usuario']);
 
         // Asignar permisos al Admin
         $admin->syncPermissions(Permission::all());

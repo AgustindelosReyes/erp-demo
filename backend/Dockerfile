@@ -21,7 +21,13 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # Copy composer files
-COPY composer.json composer.lock ./
+COPY composer.json composer.lock artisan ./
+
+# Copy bootstrap directory (required for artisan)
+COPY bootstrap ./bootstrap
+
+# Copy routes directory (required for package discovery)
+COPY routes ./routes
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader

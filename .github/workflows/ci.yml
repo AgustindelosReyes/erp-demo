@@ -89,5 +89,6 @@ jobs:
         working-directory: erp-testing
         run: |
           npm install
+          npx playwright install-deps
           npx playwright install
           npx playwright test login

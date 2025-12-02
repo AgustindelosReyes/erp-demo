@@ -12,7 +12,7 @@ jobs:
       - name: Checkout erp-testing
         uses: actions/checkout@v4
         with:
-          repository: https://github.com/pieropaccc/erp-testing  # Replace with the actual repository name, e.g., 'owner/erp-testing'
+          repository: pieropaccc/erp-testing
           path: erp-testing
 
       - name: Set up Docker Compose

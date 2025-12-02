@@ -1,0 +1,95 @@
+name: CI
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout erp-demo
+        uses: actions/checkout@v4
+
+      - name: Checkout erp-testing
+        uses: actions/checkout@v4
+        with:
+          repository: pieropaccc/erp-testing
+          path: erp-testing
+
+      - name: Set up Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+
+      - name: Build and run containers
+        run: |
+          docker-compose up --build -d
+          sleep 30  # Wait for services to be ready
+
+      - name: Create .env file
+        run: |
+          cat > ./backend/.env << EOF
+          # Database Configuration
+          DB_CONNECTION=mysql
+          DB_HOST=mysql_db
+          DB_PORT=3306
+          DB_DATABASE=erp_demo
+          DB_USERNAME=erp_user
+          DB_PASSWORD=erp_password
+          DB_ROOT_PASSWORD=root_password
+
+          # Application Configuration
+          APP_NAME="ERP Demo"
+          APP_ENV=local
+          APP_KEY=
+          APP_DEBUG=true
+          APP_URL=http://localhost:8000
+
+          # Laravel Sanctum
+          SANCTUM_STATEFUL_DOMAINS=localhost:3000
+
+          # Cache and Session
+          CACHE_DRIVER=file
+          SESSION_DRIVER=file
+          SESSION_LIFETIME=120
+
+          # Queue
+          QUEUE_CONNECTION=sync
+
+          # Mail
+          MAIL_MAILER=log
+          MAIL_HOST=127.0.0.1
+          MAIL_PORT=2525
+          MAIL_USERNAME=null
+          MAIL_PASSWORD=null
+          MAIL_ENCRYPTION=null
+          MAIL_FROM_ADDRESS="hello@example.com"
+          MAIL_FROM_NAME="\${APP_NAME}"
+
+          # Broadcasting
+          BROADCAST_DRIVER=log
+
+          # Logging
+          LOG_CHANNEL=stack
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=debug
+
+          # Vite
+          VITE_APP_NAME="\${APP_NAME}"
+          EOF
+
+      - name: Set up Laravel backend
+        run: |
+          docker cp ./backend/.env erp-demo_laravel_app_1:/var/www/.env
+          docker exec erp-demo_laravel_app_1 composer install --no-dev --optimize-autoloader
+          docker exec erp-demo_laravel_app_1 php artisan key:generate
+          docker exec erp-demo_laravel_app_1 php artisan migrate --force
+          docker exec erp-demo_laravel_app_1 php artisan db:seed
+
+      - name: Run Playwright login tests
+        working-directory: erp-testing
+        run: |
+          npm install
+          chmod +x ./node_modules/.bin/playwright
+          ./node_modules/.bin/playwright install-deps
+          ./node_modules/.bin/playwright install
+          ./node_modules/.bin/playwright test login

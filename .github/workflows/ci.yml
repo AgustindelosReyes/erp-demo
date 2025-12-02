@@ -80,6 +80,7 @@ jobs:
       - name: Set up Laravel backend
         run: |
           docker cp ./backend/.env erp-demo_laravel_app_1:/var/www/.env
+          docker exec erp-demo_laravel_app_1 composer install --no-dev --optimize-autoloader
           docker exec erp-demo_laravel_app_1 php artisan key:generate
           docker exec erp-demo_laravel_app_1 php artisan migrate --force
           docker exec erp-demo_laravel_app_1 php artisan db:seed

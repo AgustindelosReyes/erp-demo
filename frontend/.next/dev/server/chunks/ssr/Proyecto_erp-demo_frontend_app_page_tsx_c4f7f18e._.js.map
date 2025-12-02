@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/pacel/Proyecto/erp-demo/frontend/app/page.tsx"],"sourcesContent":["'use client'\r\n\r\nimport { useEffect } from 'react'\r\nimport { useRouter } from 'next/navigation'\r\nimport { useAuth } from '@/lib/auth-context'\r\n\r\nexport default function HomePage() {\r\n  const { user, isLoading } = useAuth()\r\n  const router = useRouter()\r\n\r\n  useEffect(() => {\r\n    if (!isLoading) {\r\n      if (user) {\r\n        router.push('/dashboard')\r\n      } else {\r\n        router.push('/login')\r\n      }\r\n    }\r\n  }, [user, isLoading, router])\r\n\r\n  return <div>Cargando...</div>\r\n}\r\n"],"names":[],"mappings":";;;;;AAEA;AACA;AACA;AAJA;;;;;AAMe,SAAS;IACtB,MAAM,EAAE,IAAI,EAAE,SAAS,EAAE,GAAG,IAAA,yKAAO;IACnC,MAAM,SAAS,IAAA,sLAAS;IAExB,IAAA,yPAAS,EAAC;QACR,IAAI,CAAC,WAAW;YACd,IAAI,MAAM;gBACR,OAAO,IAAI,CAAC;YACd,OAAO;gBACL,OAAO,IAAI,CAAC;YACd;QACF;IACF,GAAG;QAAC;QAAM;QAAW;KAAO;IAE5B,qBAAO,qRAAC;kBAAI;;;;;;AACd"}}]
+}

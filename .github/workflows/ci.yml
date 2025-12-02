@@ -85,11 +85,16 @@ jobs:
           docker exec erp-demo_laravel_app_1 php artisan migrate --force
           docker exec erp-demo_laravel_app_1 php artisan db:seed
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        uses: microsoft/playwright-github-action@v1
+
       - name: Run Playwright login tests
         working-directory: erp-testing
         run: |
           npm install
-          chmod +x ./node_modules/.bin/playwright
-          ./node_modules/.bin/playwright install-deps
-          ./node_modules/.bin/playwright install
-          ./node_modules/.bin/playwright test login
+          npx playwright test login

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mysql_db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  laravel_app:
+    build: ./backend
+    environment:
+      - DB_HOST=mysql_db
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - mysql_db
+    volumes:
+      - ./backend:/var/www
+
+  nextjs_web:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - laravel_app
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "8000:80"
+    depends_on:
+      - laravel_app
+
+volumes:
+  mysql_data:

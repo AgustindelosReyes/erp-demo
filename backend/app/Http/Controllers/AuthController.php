@@ -22,10 +22,17 @@ class AuthController extends Controller
             return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
 
+        if (!$user->active) {
+            return response()->json(['message' => 'Usuario inactivo'], 403);
+        }
+
         $token = $user->createToken('API Token')->plainTextToken;
 
+        // CORRECCIÓN CLAVE: Cargar la relación 'roles' antes de devolver el usuario.
+        $userWithRoles = User::with('roles')->find($user->id);
+
         return response()->json([
-            'user' => $user,
+            'user' => $userWithRoles, // Devolvemos el usuario con los roles cargados
             'token' => $token,
         ]);
     }
@@ -39,6 +46,11 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        // CORRECCIÓN CLAVE: Devolvemos el usuario actual con la relación 'roles' cargada.
+        // Esto es esencial para que la aplicación frontend sepa los permisos del usuario actual.
+        $user = $request->user();
+        $user->load('roles'); // Usamos load() en lugar de with() en un objeto ya existente
+
+        return response()->json($user);
     }
 }

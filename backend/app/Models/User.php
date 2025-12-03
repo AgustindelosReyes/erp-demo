@@ -2,37 +2,32 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+// Añadir HasRoles
+use Spatie\Permission\Traits\HasRoles; 
+use Spatie\Permission\Models\Role; // Importar Role de Spatie (necesario para la relación roles())
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-// Importar los modelos de Spatie, aunque se usan indirectamente
-use Spatie\Permission\Traits\HasRoles; 
-use Spatie\Permission\Models\Role; // <-- NUEVO: Importar Role de Spatie
-
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles; // Usar HasRoles de Spatie
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * ES CRUCIAL que las columnas que se actualizan y se muestran estén aquí.
      */
     protected $fillable = [
         'name',
         'email',
         'password',
-        'active',
+        'active', 
     ];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
      */
     protected $hidden = [
         'password',
@@ -41,6 +36,7 @@ class User extends Authenticatable
 
     /**
      * Get the attributes that should be cast.
+     * Usando la sintaxis de función (Laravel 10+).
      *
      * @return array<string, string>
      */
@@ -49,18 +45,19 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active' => 'boolean', // CLAVE: Asegura que 'active' se maneje como booleano
         ];
     }
     
     /**
      * Sobrescribir la relación "roles" para asegurar que se resuelve correctamente 
-     * al modelo de Spatie.
+     * al modelo de Spatie. (Aunque HasRoles lo hace automáticamente, esto lo asegura).
      */
     public function roles()
     {
-        // Retorna la relación de Spatie HasRoles, pero apuntando a la clase correcta.
+        // Retorna la relación de Spatie HasRoles, apuntando a la clase Role::class.
         return $this->morphToMany(
-            Role::class, // <-- Usamos la clase de Spatie
+            Role::class, // Usamos la clase de Spatie
             'model',
             config('permission.table_names.model_has_roles'),
             config('permission.column_names.model_morph_key') ?: 'model_id',

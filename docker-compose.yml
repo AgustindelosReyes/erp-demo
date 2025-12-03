@@ -39,5 +39,18 @@ services:
     depends_on:
       - laravel_app
 
+  # 💡 SERVICIO phpMYADMIN AÑADIDO
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    environment:
+      # Pone el host de la base de datos (nombre del servicio)
+      PMA_HOST: mysql_db
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "8080:80" # Puedes acceder a phpMyAdmin en http://localhost:8080
+    depends_on:
+      - mysql_db
+    restart: always # Asegura que se reinicie si falla
+    
 volumes:
   mysql_data:

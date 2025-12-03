@@ -39,9 +39,24 @@ class UsersController extends Controller
 
     public function store(UserStoreRequest $request)
     {
-        $user = User::create($request->validated());
-        $user->assignRole($request->role);
-        return response()->json($user, 201);
+        $data = $request->validated();
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => bcrypt($data['password']),
+            'active' => $data['active'],
+        ]);
+        $user->assignRole($data['role']);
+        return response()->json([
+            'message' => 'Usuario creado',
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->roles->first()?->name,
+                'active' => (bool) $user->active,
+            ]
+        ], 201);
     }
 
     public function update(UserUpdateRequest $request, $id)

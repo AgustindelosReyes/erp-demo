@@ -30,6 +30,9 @@ COPY package*.json ./
 # Copy source code
 COPY . .
 
+# Set environment variable for API URL
+ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+
 # Build the application
 RUN npm run build
 

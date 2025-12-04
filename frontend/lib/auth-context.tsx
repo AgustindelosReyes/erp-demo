@@ -26,6 +26,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      // Skip API calls during build time
+      if (typeof window === 'undefined') {
+        setIsLoading(false)
+        return
+      }
+
       const storedToken = localStorage.getItem('auth_token')
       const storedUser = localStorage.getItem('auth_user')
 
@@ -34,7 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(JSON.parse(storedUser))
         // Verify token by fetching user
         try {
-          const response = await fetch('http://localhost:8000/api/me', {
+          const apiUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+          const response = await fetch(`${apiUrl}/api/me`, {
             headers: {
               'Authorization': `Bearer ${storedToken}`,
               'Accept': 'application/json',
@@ -62,7 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('http://localhost:8000/api/login', {
+    const apiUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${apiUrl}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUser = async () => {
     if (!token) return
 
-    const response = await fetch('http://localhost:8000/api/me', {
+    const apiUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${apiUrl}/api/me`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
@@ -106,7 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     if (token) {
-      await fetch('http://localhost:8000/api/logout', {
+      const apiUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      await fetch(`${apiUrl}/api/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

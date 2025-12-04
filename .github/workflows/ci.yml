@@ -21,9 +21,7 @@ jobs:
           sudo apt-get install -y docker-compose
 
       - name: Build and run containers
-        run: |
-          docker-compose up --build -d
-          sleep 30  # Wait for services to be ready
+        run: docker-compose up --build -d
 
       - name: Create .env file
         run: |
@@ -77,13 +75,10 @@ jobs:
           VITE_APP_NAME="\${APP_NAME}"
           EOF
 
-      - name: Set up Laravel backend
+      - name: Copy .env and verify setup
         run: |
-          docker cp ./backend/.env erp-demo_laravel_app_1:/var/www/.env
-          docker exec erp-demo_laravel_app_1 composer install --no-dev --optimize-autoloader
-          docker exec erp-demo_laravel_app_1 php artisan key:generate
-          docker exec erp-demo_laravel_app_1 php artisan migrate --force
-          docker exec erp-demo_laravel_app_1 php artisan db:seed
+          docker-compose cp ./backend/.env laravel_app:/var/www/.env
+          docker-compose exec laravel_app php artisan migrate:status
 
       - name: Run Playwright login tests
         working-directory: erp-testing

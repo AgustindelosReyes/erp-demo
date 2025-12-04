@@ -37,6 +37,10 @@ RUN npm install && npm run build
 # Change ownership of our applications
 RUN chown -R www-data:www-data /var/www
 
-# Expose port 9000 and start php-fpm server
+# Copy and set executable for start script
+COPY start.sh /var/www/start.sh
+RUN chmod +x /var/www/start.sh
+
+# Expose port 9000 and start with entrypoint script
 EXPOSE 9000
-CMD ["php-fpm"]
+CMD ["/var/www/start.sh"]

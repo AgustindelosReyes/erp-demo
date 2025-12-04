@@ -28,6 +28,10 @@ WORKDIR /var/www
 # Copy existing application directory contents
 COPY . /var/www
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
@@ -37,6 +41,8 @@ RUN npm install && npm run build
 # Change ownership of our applications
 RUN chown -R www-data:www-data /var/www
 
-# Expose port 9000 and start php-fpm server
+# Expose port 9000
 EXPOSE 9000
-CMD ["php-fpm"]
+
+# Use entrypoint script
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

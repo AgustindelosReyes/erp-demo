@@ -33,6 +33,9 @@ COPY . /var/www
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Debug: Show .env content
+RUN cat .env
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 

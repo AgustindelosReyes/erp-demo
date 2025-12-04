@@ -27,6 +27,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Asignar rol Admin al usuario de prueba
-        $user->assignRole('Admin');
+        $user->assignRole('admin');
     }
 }

@@ -28,16 +28,19 @@ jobs:
         echo "APP_ENV=testing" >> .env.ci
 
     - name: Build and start services
-      run: docker-compose --env-file .env.ci up -d --build
+      run: docker compose --env-file .env.ci up -d --build
+
+    - name: Install Composer dependencies
+      run: docker compose --env-file .env.ci exec -T laravel_app composer install
 
     - name: Wait for services to be ready
       run: |
         sleep 30
-        docker-compose --env-file .env.ci exec -T laravel_app php artisan migrate --force
-        docker-compose --env-file .env.ci exec -T laravel_app php artisan db:seed --force
+        docker compose --env-file .env.ci exec -T laravel_app php artisan migrate --force
+        docker compose --env-file .env.ci exec -T laravel_app php artisan db:seed --force
 
     - name: Run Laravel backend tests
-      run: docker-compose --env-file .env.ci exec -T laravel_app php artisan test
+      run: docker compose --env-file .env.ci exec -T laravel_app php artisan test
 
     - name: Install Playwright dependencies
       run: |
@@ -51,5 +54,5 @@ jobs:
         npx playwright test
 
     - name: Stop services
-      run: docker-compose --env-file .env.ci down
+      run: docker compose --env-file .env.ci down
       if: always()

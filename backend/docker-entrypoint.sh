@@ -4,7 +4,7 @@ set -e
 
 # Wait for MySQL
 echo "Waiting for MySQL..."
-while ! mysqladmin ping -h mysql -u root -p${MYSQL_ROOT_PASSWORD} --silent; do
+while ! mysqladmin ping -h mysql_db -u root -p${MYSQL_ROOT_PASSWORD} --silent; do
   sleep 1
 done
 echo "MySQL is ready."

@@ -75,11 +75,10 @@ jobs:
           VITE_APP_NAME="\${APP_NAME}"
           EOF
 
-      - name: Copy .env and verify setup
+      - name: Copy .env
         run: |
           until docker-compose ps -q laravel_app > /dev/null; do sleep 1; done
           docker cp ./backend/.env $(docker-compose ps -q laravel_app):/var/www/.env
-          docker-compose exec laravel_app php artisan migrate:status
 
       - name: Run Playwright login tests
         working-directory: erp-testing

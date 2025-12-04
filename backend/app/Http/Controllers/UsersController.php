@@ -152,16 +152,16 @@ class UsersController extends Controller
      */
     public function destroy(User $user)
     {
-        // Regla de Negocio: Evitar que un usuario se elimine a sí mismo
-        if ($user->id === Auth::id()) {
+        // Evitar que un usuario se elimine a sí mismo
+        if (auth()->id() === $user->id) {
             return response()->json([
-                'message' => 'No puedes eliminar al usuario autenticado.',
+                "message" => "No podés eliminar tu propio usuario"
             ], 403);
         }
 
         $user->delete();
-        
-        return response()->json(['message' => 'Usuario eliminado']);
+
+        return response()->noContent();
     }
     /**
      * Muestra el usuario especificado.

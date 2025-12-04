@@ -25,7 +25,7 @@ class ProductFactory extends Factory
         return [
             'name' => $this->faker->word(),
             'description' => $this->faker->sentence(),
-            'category' => $this->faker->randomElement(['hogar','pintura','ferreteria']),
+            'category' => $this->faker->randomElement(['hogar','pintura','ferreteria', null]),
             'stock' => $this->faker->numberBetween(0, 50),
             'stock_min' => 5,
             'price' => $this->faker->randomFloat(2, 500, 50000),

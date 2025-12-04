@@ -12,8 +12,8 @@ return new class extends Migration {
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('category')->nullable();
-            $table->integer('stock')->default(0);
-            $table->integer('stock_min')->default(0);
+            $table->integer('stock')->default(0)->unsigned();
+            $table->integer('stock_min')->default(0)->unsigned();
             $table->decimal('price', 10, 2)->default(0);
             $table->timestamps();
         });

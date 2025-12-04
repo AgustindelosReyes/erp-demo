@@ -17,6 +17,7 @@ services:
     build: ./backend
     environment:
       - DB_HOST=mysql_db
+      - DB_PORT=${DB_PORT}
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -24,6 +25,13 @@ services:
       - mysql_db
     volumes:
       - ./backend:/var/www
+      - ./.env:/var/www/.env
+      - ./backend/storage/app:/var/www/storage/app
+      - ./backend/storage/framework/cache:/var/www/storage/framework/cache
+      - ./backend/storage/framework/sessions:/var/www/storage/framework/sessions
+      - ./backend/storage/framework/views:/var/www/storage/framework/views
+      - ./backend/storage/logs:/var/www/storage/logs
+      - ./backend/bootstrap/cache:/var/www/bootstrap/cache
 
   nextjs_web:
     build: ./frontend

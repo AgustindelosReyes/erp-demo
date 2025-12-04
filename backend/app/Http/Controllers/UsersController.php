@@ -163,4 +163,20 @@ class UsersController extends Controller
         
         return response()->json(['message' => 'Usuario eliminado']);
     }
+    /**
+     * Muestra el usuario especificado.
+     */
+    public function show(\App\Models\User $user)
+    {
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->roles->first()?->name,
+                'active' => (bool) $user->active,
+            ]
+        ]);
+    }
+
 }

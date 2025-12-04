@@ -16,6 +16,11 @@ class MovementItemSeeder extends Seeder
      */
     public function run(): void
     {
+        // Skip if movement items already exist
+        if (MovementItem::count() > 0) {
+            return;
+        }
+
         $movements = Movement::all();
         $products = Product::all();
 

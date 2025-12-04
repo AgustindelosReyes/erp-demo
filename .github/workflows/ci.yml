@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: 1
 
     steps:
     - name: Checkout code
@@ -16,6 +18,14 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
 
     - name: Create .env file
       run: |
@@ -31,19 +41,136 @@ jobs:
       run: cp .env.ci backend/.env
 
     - name: Build and start services
-      run: docker compose --env-file .env.ci up -d --build
+      run: |
+        # Build services sequentially to avoid dependency issues
+        docker compose --env-file .env.ci build --build-arg BUILDKIT_INLINE_CACHE=1
+        docker compose --env-file .env.ci up -d
+
+    - name: Log Docker container statuses after build
+      run: docker compose --env-file .env.ci ps
 
     - name: Install Composer dependencies
       run: docker compose --env-file .env.ci exec -T laravel_app composer install
 
+    - name: Log service logs after composer install
+      run: docker compose --env-file .env.ci logs --tail=50
+
     - name: Wait for services to be ready
       run: |
-        sleep 30
+        # Wait for MySQL (via phpMyAdmin)
+        for attempt in {1..40}; do
+          if curl -f --connect-timeout 10 --max-time 15 --retry 2 --retry-connrefused http://localhost:8080 > /dev/null 2>&1; then
+            echo "MySQL (via phpMyAdmin) is ready"
+            break
+          fi
+          echo "Waiting for MySQL... attempt $attempt/40"
+          sleep 3
+        done
+        if [ $attempt -eq 40 ]; then
+          echo "MySQL failed to become ready"
+          exit 1
+        fi
+
+        # Wait for Laravel
+        for attempt in {1..40}; do
+          if curl -f --connect-timeout 10 --max-time 15 --retry 2 --retry-connrefused http://localhost:8000/api/health > /dev/null 2>&1 && curl -s http://localhost:8000/api/health | grep -q '"status":"ok"'; then
+            echo "Laravel is ready"
+            break
+          fi
+          echo "Waiting for Laravel... attempt $attempt/40"
+          sleep 3
+        done
+        if [ $attempt -eq 40 ]; then
+          echo "Laravel failed to become ready"
+          exit 1
+        fi
+
+        # Wait for Next.js
+        for attempt in {1..40}; do
+          if curl -f --connect-timeout 10 --max-time 15 --retry 2 --retry-connrefused http://localhost:8000 > /dev/null 2>&1; then
+            echo "Next.js is ready"
+            break
+          fi
+          echo "Waiting for Next.js... attempt $attempt/40"
+          sleep 3
+        done
+        if [ $attempt -eq 40 ]; then
+          echo "Next.js failed to become ready"
+          exit 1
+        fi
+
         docker compose --env-file .env.ci exec -T laravel_app php artisan migrate --force
-        docker compose --env-file .env.ci exec -T laravel_app php artisan db:seed --force
+
+    - name: Log container statuses after services ready
+      run: docker compose --env-file .env.ci ps
+
+    - name: Check database connectivity
+      run: |
+        docker compose --env-file .env.ci exec -T laravel_app php artisan tinker --execute="try { DB::connection()->getPdo(); echo 'Database connection successful'; } catch (Exception \$e) { echo 'Database connection failed: ' . \$e->getMessage(); exit(1); }"
+
+    - name: Log migration status
+      run: echo "Database migration completed successfully"
+
+    - name: Check if database is populated
+      run: |
+        COUNT=$(docker compose --env-file .env.ci exec -T laravel_app php artisan tinker --execute="echo App\Models\User::count();")
+        if [ "$COUNT" -gt 0 ]; then
+          echo "SKIP_SEEDING=true" >> $GITHUB_ENV
+        fi
+
+    - name: Seed database
+      run: docker compose --env-file .env.ci exec -T -e SKIP_SEEDING=$SKIP_SEEDING laravel_app php artisan db:seed --force
+
+    - name: Log seeding status
+      run: echo "Database seeding completed"
+
+    - name: Verify service connectivity for test suites
+      run: |
+        echo "Checking API endpoints connectivity..."
+        # Check API login endpoint (POST, but check connectivity)
+        if curl --connect-timeout 5 --max-time 10 -s http://localhost:8000/api/login > /dev/null; then
+          echo "API login endpoint is accessible"
+        else
+          echo "API login endpoint is not accessible"
+          exit 1
+        fi
+        # Check API users endpoint (requires auth, but check connectivity)
+        if curl --connect-timeout 5 --max-time 10 -s http://localhost:8000/api/users > /dev/null; then
+          echo "API users endpoint is accessible"
+        else
+          echo "API users endpoint is not accessible"
+          exit 1
+        fi
+        echo "Checking frontend routes connectivity..."
+        # Check frontend login page
+        if curl --connect-timeout 5 --max-time 10 -s http://localhost:8000/login > /dev/null; then
+          echo "Frontend login page is accessible"
+        else
+          echo "Frontend login page is not accessible"
+          exit 1
+        fi
+        # Check frontend dashboard page
+        if curl --connect-timeout 5 --max-time 10 -s http://localhost:8000/dashboard > /dev/null; then
+          echo "Frontend dashboard page is accessible"
+        else
+          echo "Frontend dashboard page is not accessible"
+          exit 1
+        fi
+
+    - name: Log before Laravel tests
+      run: echo "Starting Laravel backend tests"
 
     - name: Run Laravel backend tests
       run: docker compose --env-file .env.ci exec -T laravel_app php artisan test
+
+    - name: Log after Laravel tests
+      run: echo "Laravel backend tests completed"
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: /home/runner/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('erp-testing/package-lock.json') }}
 
     - name: Install Playwright dependencies
       run: |
@@ -51,11 +178,23 @@ jobs:
         npm ci
         npx playwright install --with-deps
 
+    - name: Log before Playwright tests
+      run: echo "Starting Playwright e2e tests"
+
     - name: Run Playwright e2e tests
       run: |
         cd erp-testing
         npx playwright test
 
+    - name: Log after Playwright tests
+      run: echo "Playwright e2e tests completed"
+
+    - name: Log final service logs
+      run: docker compose --env-file .env.ci logs --tail=100
+      if: always()
+
     - name: Stop services
-      run: docker compose --env-file .env.ci down
+      run: |
+        docker compose --env-file .env.ci down --volumes --remove-orphans
+        docker system prune -f
       if: always()

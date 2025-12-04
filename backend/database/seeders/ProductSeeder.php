@@ -10,6 +10,11 @@ class ProductSeeder extends Seeder
 {
     public function run()
     {
+        // Skip if products already exist
+        if (Product::count() > 0) {
+            return;
+        }
+
         $products = [
             [
                 'name' => 'Pintura Blanca',

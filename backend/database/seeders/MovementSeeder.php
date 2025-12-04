@@ -12,6 +12,11 @@ class MovementSeeder extends Seeder
 {
     public function run(): void
     {
+        // Skip if movements already exist
+        if (Movement::count() > 0) {
+            return;
+        }
+
         // Usuario Admin (el que creaste en DatabaseSeeder)
         $admin = User::first();
 

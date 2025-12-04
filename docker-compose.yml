@@ -12,7 +12,11 @@ services:
       - mysql_data:/var/lib/mysql
 
   laravel_app:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     environment:
       - DB_HOST=mysql_db
       - DB_DATABASE=${DB_DATABASE}
@@ -25,18 +29,32 @@ services:
       - ./backend:/var/www
 
   nextjs_web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     ports:
       - "3000:3000"
     depends_on:
       - laravel_app
+    environment:
+      BACKEND_URL: http://nginx
 
   nginx:
-    build: ./nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     ports:
       - "8000:80"
     depends_on:
       - laravel_app
+      - nextjs_web
+    environment:
+      BACKEND_HOST: laravel_app
+      FRONTEND_HOST: nextjs_web
 
   # 💡 SERVICIO phpMYADMIN AÑADIDO
   phpmyadmin:

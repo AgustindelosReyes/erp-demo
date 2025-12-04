@@ -2,8 +2,18 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UsersController;
+
+Route::get('/health', function () {
+    try {
+        DB::connection()->getPdo();
+        return response()->json(['status' => 'ok']);
+    } catch (\Exception $e) {
+        return response()->json(['status' => 'error'], 500);
+    }
+});
 
 Route::post('/login', [AuthController::class, 'login']);
 

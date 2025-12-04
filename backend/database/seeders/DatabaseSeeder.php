@@ -12,8 +12,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Crear usuario de prueba
-        $user = User::factory()->create([
+        // Skip seeding if SKIP_SEEDING is set
+        if (env('SKIP_SEEDING')) {
+            return;
+        }
+
+        // Crear usuario de prueba si no existe
+        $user = User::firstOrCreate([
+            'email' => 'test@example.com',
+        ], [
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);

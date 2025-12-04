@@ -77,7 +77,7 @@ jobs:
 
       - name: Copy .env and verify setup
         run: |
-          docker-compose cp ./backend/.env laravel_app:/var/www/.env
+          docker cp ./backend/.env $(docker-compose ps -q laravel_app):/var/www/.env
           docker-compose exec laravel_app php artisan migrate:status
 
       - name: Run Playwright login tests

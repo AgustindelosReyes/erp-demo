@@ -57,7 +57,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertStatus(401)
-                 ->assertJson(['message' => 'Invalid credentials']);
+                 ->assertJson(['message' => 'Credenciales inválidas']);
     }
 
     public function test_login_with_invalid_password()
@@ -73,7 +73,7 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertStatus(401)
-                 ->assertJson(['message' => 'Invalid credentials']);
+                 ->assertJson(['message' => 'Credenciales inválidas']);
     }
 
     public function test_login_with_missing_email()

@@ -27,6 +27,9 @@ jobs:
         echo "DB_PASSWORD=erp_password" >> .env.ci
         echo "APP_ENV=testing" >> .env.ci
 
+    - name: Copy env file to backend
+      run: cp .env.ci backend/.env
+
     - name: Build and start services
       run: docker compose --env-file .env.ci up -d --build
 

@@ -61,7 +61,7 @@ jobs:
           EOF
       - name: Copy .env
         run: |
-          until docker-compose ps -q laravel_app > /dev/null; do sleep 1; done
+          until [ "$(docker inspect -f '{{.State.Running}}' $(docker-compose ps -q laravel_app))" = "true" ]; do sleep 1; done
           docker cp ./backend/.env $(docker-compose ps -q laravel_app):/var/www/.env
 
       - name: Generate APP_KEY

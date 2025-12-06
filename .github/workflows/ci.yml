@@ -14,6 +14,69 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose
 
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          # Database Configuration
+          DB_CONNECTION=mysql
+          DB_HOST=mysql_db
+          DB_PORT=3306
+          DB_DATABASE=erp_demo
+          DB_USERNAME=erp_user
+          DB_PASSWORD=erp_password
+          DB_ROOT_PASSWORD=root_password
+          # Application Configuration
+          APP_NAME="ERP Demo"
+          APP_ENV=local
+          APP_KEY=base64:c3VwZXJzZWNyZXRrZXl0aGF0aXMyNWNoYXJzUm9uZzE=
+          APP_DEBUG=true
+          APP_URL=http://localhost:8000
+          # Laravel Sanctum
+          SANCTUM_STATEFUL_DOMAINS=localhost:3000
+          # Cache and Session
+          CACHE_DRIVER=file
+          SESSION_DRIVER=file
+          SESSION_LIFETIME=120
+          # Queue
+          QUEUE_CONNECTION=sync
+          # Mail
+          MAIL_MAILER=log
+          MAIL_HOST=127.0.0.1
+          MAIL_PORT=2525
+          MAIL_USERNAME=null
+          MAIL_PASSWORD=null
+          MAIL_ENCRYPTION=null
+          MAIL_FROM_ADDRESS="hello@example.com"
+          MAIL_FROM_NAME="${APP_NAME}"
+          # Broadcasting
+          BROADCAST_DRIVER=log
+          # Logging
+          LOG_CHANNEL=stack
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=debug
+          # Vite
+          VITE_APP_NAME="${APP_NAME}"
+          EOF
+
+      - name: Validate .env file
+        run: |
+          if [ ! -f .env ]; then
+            echo "Error: .env file not found" >&2
+            exit 1
+          fi
+          # Check for required variables
+          required_vars="DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD DB_ROOT_PASSWORD APP_NAME APP_ENV APP_KEY APP_DEBUG APP_URL"
+          for var in $required_vars; do
+            if ! grep -q "^$var=" .env; then
+              echo "Error: Required variable $var not found in .env" >&2
+              exit 1
+            fi
+          done
+          echo ".env validation passed"
+
+      - name: Validate docker-compose config
+        run: docker-compose config
+
       - name: Start Docker Compose services
         run: docker-compose up -d
 

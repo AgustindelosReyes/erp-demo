@@ -63,3 +63,12 @@ jobs:
         run: |
           until docker-compose ps -q laravel_app > /dev/null; do sleep 1; done
           docker cp ./backend/.env $(docker-compose ps -q laravel_app):/var/www/.env
+
+      - name: Generate APP_KEY
+        run: docker exec $(docker-compose ps -q laravel_app) php artisan key:generate
+
+      - name: Run migrations
+        run: docker exec $(docker-compose ps -q laravel_app) php artisan migrate
+
+      - name: Run seeders
+        run: docker exec $(docker-compose ps -q laravel_app) php artisan db:seed

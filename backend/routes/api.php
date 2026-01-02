@@ -15,6 +15,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('products', ProductController::class);
     Route::post('/movements', [MovementController::class, 'store']);
     Route::get('/sales/summary', [MovementController::class, 'salesSummary']);
+    Route::get('/sales/best-selling-products', [MovementController::class, 'bestSellingProducts']);
 
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/users', [UsersController::class, 'index']);

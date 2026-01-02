@@ -165,4 +165,29 @@ class MovementController extends Controller
 
         return response()->json($response);
     }
+
+    public function bestSellingProducts(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'sometimes|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 400);
+        }
+
+        $limit = $request->query('limit', 10);
+
+        $result = DB::table('movement_items')
+            ->join('movements', 'movement_items.movement_id', '=', 'movements.id')
+            ->join('products', 'movement_items.product_id', '=', 'products.id')
+            ->where('movements.movement_type', 'venta')
+            ->select('movement_items.product_id', 'products.name as product_name', DB::raw('SUM(movement_items.quantity) as total_quantity'))
+            ->groupBy('movement_items.product_id', 'products.name')
+            ->orderBy('total_quantity', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return response()->json($result, 200);
+    }
 }

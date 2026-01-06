@@ -9,6 +9,7 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class MovementController extends Controller
 {
@@ -19,8 +20,7 @@ class MovementController extends Controller
         if ($movement_type === 'ajuste') {
             $product = Product::findOrFail($request->product_id);
 
-            DB::beginTransaction();
-            try {
+            DB::transaction(function () use ($request, $product) {
                 $product->update(['stock' => $request->adjusted_stock]);
 
                 $movement = Movement::create([
@@ -37,12 +37,7 @@ class MovementController extends Controller
                     'quantity' => $request->adjusted_stock,
                     'price' => 0,
                 ]);
-
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['error' => 'Failed to create adjustment movement'], 500);
-            }
+            });
 
             return response()->json(['message' => 'Adjustment movement registered successfully'], 201);
         }
@@ -71,8 +66,7 @@ class MovementController extends Controller
         }
 
         // Proceed with transaction
-        DB::beginTransaction();
-        try {
+        DB::transaction(function () use ($items, $products, $movement_type) {
             $totalQuantity = collect($items)->sum('quantity');
             $firstProductId = $items[0]['product_id'];
 
@@ -103,44 +97,72 @@ class MovementController extends Controller
                     $products[$item['product_id']]->increment('stock', $item['quantity']);
                 }
             }
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Failed to create movement'], 500);
-        }
+        });
 
         $message = $movement_type === 'venta' ? 'Sale movement registered successfully' : 'Entry movement registered successfully';
         return response()->json(['message' => $message], 201);
     }
 
-    public function index(Request $request)
+    public function salesSummary(Request $request)
     {
-        $query = \App\Models\Movement::query();
+        $validator = Validator::make($request->all(), [
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:1900|max:' . (date('Y') + 10),
+            'comparePrevious' => 'sometimes|in:true,false,1,0',
+        ], [
+            'month.required' => 'The month field is required.',
+            'month.integer' => 'The month must be an integer.',
+            'month.min' => 'The month must be at least 1.',
+            'month.max' => 'The month may not be greater than 12.',
+            'year.required' => 'The year field is required.',
+            'year.integer' => 'The year must be an integer.',
+            'year.min' => 'The year must be at least 1900.',
+            'year.max' => 'The year may not be greater than ' . (date('Y') + 10) . '.',
+            'comparePrevious.in' => 'The comparePrevious field must be one of: true, false, 1, 0.',
+        ]);
 
-        if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 400);
         }
 
-        if ($request->has('movement_type')) {
-            $query->where('movement_type', $request->movement_type);
+        $result = DB::table('movements')
+            ->join('movement_items', 'movements.id', '=', 'movement_items.movement_id')
+            ->where('movements.movement_type', 'venta')
+            ->whereMonth('movements.created_at', $request->month)
+            ->whereYear('movements.created_at', $request->year)
+            ->selectRaw('COALESCE(SUM(movement_items.price * movement_items.quantity), 0) as totalSales, COALESCE(COUNT(DISTINCT movements.id), 0) as totalMovements')
+            ->first();
+
+        $totalSales = $result->totalSales ?? 0;
+        $totalMovements = $result->totalMovements ?? 0;
+
+        $response = [
+            'totalSales' => $totalSales,
+            'totalMovements' => $totalMovements,
+        ];
+
+        if ($request->boolean('comparePrevious')) {
+            // Calculate previous month and year
+            $prevMonth = $request->month > 1 ? $request->month - 1 : 12;
+            $prevYear = $request->month > 1 ? $request->year : $request->year - 1;
+
+            $prevResult = DB::table('movements')
+                ->join('movement_items', 'movements.id', '=', 'movement_items.movement_id')
+                ->where('movements.movement_type', 'venta')
+                ->whereMonth('movements.created_at', $prevMonth)
+                ->whereYear('movements.created_at', $prevYear)
+                ->selectRaw('COALESCE(SUM(movement_items.price * movement_items.quantity), 0) as totalSales, COALESCE(COUNT(DISTINCT movements.id), 0) as totalMovements')
+                ->first();
+
+            $previousTotalSales = $prevResult->totalSales ?? 0;
+            $previousTotalMovements = $prevResult->totalMovements ?? 0;
+
+            $response['previousTotalSales'] = $previousTotalSales;
+            $response['previousTotalMovements'] = $previousTotalMovements;
+            $response['salesDifference'] = $totalSales - $previousTotalSales;
+            $response['movementsDifference'] = $totalMovements - $previousTotalMovements;
         }
 
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->has('from')) {
-            $query->whereDate('created_at', '>=', $request->from);
-        }
-
-        if ($request->has('to')) {
-            $query->whereDate('created_at', '<=', $request->to);
-        }
-
-        $movements = $query
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-
-        return response()->json($movements);
+        return response()->json($response);
     }
 }

@@ -20,7 +20,8 @@ class MovementController extends Controller
         if ($movement_type === 'ajuste') {
             $product = Product::findOrFail($request->product_id);
 
-            DB::transaction(function () use ($request, $product) {
+            DB::beginTransaction();
+            try {
                 $product->update(['stock' => $request->adjusted_stock]);
 
                 $movement = Movement::create([
@@ -37,7 +38,12 @@ class MovementController extends Controller
                     'quantity' => $request->adjusted_stock,
                     'price' => 0,
                 ]);
-            });
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json(['error' => 'Failed to create adjustment movement'], 500);
+            }
 
             return response()->json(['message' => 'Adjustment movement registered successfully'], 201);
         }
@@ -66,7 +72,8 @@ class MovementController extends Controller
         }
 
         // Proceed with transaction
-        DB::transaction(function () use ($items, $products, $movement_type) {
+        DB::beginTransaction();
+        try {
             $totalQuantity = collect($items)->sum('quantity');
             $firstProductId = $items[0]['product_id'];
 
@@ -97,7 +104,12 @@ class MovementController extends Controller
                     $products[$item['product_id']]->increment('stock', $item['quantity']);
                 }
             }
-        });
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Failed to create movement'], 500);
+        }
 
         $message = $movement_type === 'venta' ? 'Sale movement registered successfully' : 'Entry movement registered successfully';
         return response()->json(['message' => $message], 201);
@@ -164,5 +176,30 @@ class MovementController extends Controller
         }
 
         return response()->json($response);
+    }
+
+    public function bestSellingProducts(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'sometimes|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 400);
+        }
+
+        $limit = $request->query('limit', 10);
+
+        $result = DB::table('movement_items')
+            ->join('movements', 'movement_items.movement_id', '=', 'movements.id')
+            ->join('products', 'movement_items.product_id', '=', 'products.id')
+            ->where('movements.movement_type', 'venta')
+            ->select('movement_items.product_id', 'products.name as product_name', DB::raw('SUM(movement_items.quantity) as total_quantity'))
+            ->groupBy('movement_items.product_id', 'products.name')
+            ->orderBy('total_quantity', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return response()->json($result, 200);
     }
 }

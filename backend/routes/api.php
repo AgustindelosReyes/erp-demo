@@ -28,4 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Route::delete('/users/{id}', [UsersController::class, 'destroy']);
         Route::delete('/users/{user}', [UsersController::class, 'destroy']);
     });
+
 });
+
+// Rutas públicas para clientes
+Route::apiResource('clientes', \App\Http\Controllers\ClienteController::class);

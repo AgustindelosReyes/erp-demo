@@ -14,6 +14,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::apiResource('products', ProductController::class);
     Route::post('/movements', [MovementController::class, 'store']);
+    Route::get('/movements', [MovementController::class, 'index']);
 
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/users', [UsersController::class, 'index']);

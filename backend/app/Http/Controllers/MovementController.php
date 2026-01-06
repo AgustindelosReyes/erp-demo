@@ -112,4 +112,35 @@ class MovementController extends Controller
         $message = $movement_type === 'venta' ? 'Sale movement registered successfully' : 'Entry movement registered successfully';
         return response()->json(['message' => $message], 201);
     }
+
+    public function index(Request $request)
+    {
+        $query = \App\Models\Movement::query();
+
+        if ($request->has('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        if ($request->has('movement_type')) {
+            $query->where('movement_type', $request->movement_type);
+        }
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('from')) {
+            $query->whereDate('created_at', '>=', $request->from);
+        }
+
+        if ($request->has('to')) {
+            $query->whereDate('created_at', '<=', $request->to);
+        }
+
+        $movements = $query
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return response()->json($movements);
+    }
 }

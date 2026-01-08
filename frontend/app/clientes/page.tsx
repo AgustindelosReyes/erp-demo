@@ -6,72 +6,71 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { ClientesTable, ClienteModal } from "@/components/clientes-table";
-import { useClientes } from "@/hooks/use-clientes";
+import { useUsers } from "@/hooks/use-users";
 
-interface Cliente {
+interface User {
   id: number;
-  nombre: string;
+  name: string;
   email: string;
-  telefono: string;
-  direccion: string;
-  fecha_registro: string;
-  total_compras: number;
-  avatar?: string;
+  telefono: string | null;
+  direccion: string | null;
+  role: string | null;
+  active: boolean;
 }
 
 export default function ClientesPage() {
-  const { clientes, loading, error, createCliente, updateCliente, deleteCliente } = useClientes();
+  const { users, loading, error, createUser, updateUser, deleteUser } = useUsers();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const handleAddCliente = () => {
-    setEditingCliente(null);
+  const handleAddUser = () => {
+    setEditingUser(null);
     setIsModalOpen(true);
   };
 
-  const handleEditCliente = (cliente: Cliente) => {
-    setEditingCliente(cliente);
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
     setIsModalOpen(true);
   };
 
-  const handleDeleteCliente = async (id: number) => {
+  const handleDeleteUser = async (id: number) => {
     try {
-      await deleteCliente(id);
+      await deleteUser(id);
       toast({
-        title: "Cliente eliminado",
-        description: "El cliente ha sido eliminado exitosamente.",
+        title: "Usuario eliminado",
+        description: "El usuario ha sido eliminado exitosamente.",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo eliminar el cliente.",
+        description: "No se pudo eliminar el usuario.",
         variant: "destructive",
       });
     }
   };
 
-  const handleSaveCliente = async (clienteData: Omit<Cliente, 'id' | 'fecha_registro' | 'total_compras'>) => {
+  const handleSaveUser = async (userData: Omit<User, 'id' | 'role' | 'active'> & { password?: string; role?: string; active?: boolean }) => {
     try {
-      if (editingCliente) {
-        // Editar cliente existente
-        await updateCliente(editingCliente.id, clienteData);
+      if (editingUser) {
+        // Editar usuario existente
+        await updateUser(editingUser.id, userData);
         toast({
-          title: "Cliente actualizado",
-          description: "Los datos del cliente han sido actualizados.",
+          title: "Usuario actualizado",
+          description: "Los datos del usuario han sido actualizados.",
         });
       } else {
-        // Crear nuevo cliente
-        await createCliente(clienteData);
+        // Crear nuevo usuario
+        await createUser(userData as any);
         toast({
-          title: "Cliente creado",
-          description: "El nuevo cliente ha sido creado exitosamente.",
+          title: "Usuario creado",
+          description: "El nuevo usuario ha sido creado exitosamente.",
         });
       }
       setIsModalOpen(false);
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo guardar el cliente.",
+        description: "No se pudo guardar el usuario.",
         variant: "destructive",
       });
     }
@@ -106,34 +105,34 @@ export default function ClientesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gestión de Clientes</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Gestión de Usuarios</h1>
         <p className="text-muted-foreground">
-          Administra la información de tus clientes, realiza búsquedas y gestiona sus datos.
+          Administra la información de tus usuarios, realiza búsquedas y gestiona sus datos.
         </p>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative">
-            <Button onClick={handleAddCliente} className="w-full sm:w-auto">
+            <Button onClick={handleAddUser} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Nuevo Cliente
+              Nuevo Usuario
             </Button>
           </div>
         </div>
       </div>
 
       <ClientesTable
-        clientes={clientes}
-        onEdit={handleEditCliente}
-        onDelete={handleDeleteCliente}
+        users={users}
+        onEdit={handleEditUser}
+        onDelete={handleDeleteUser}
       />
 
       <ClienteModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveCliente}
-        cliente={editingCliente}
+        onSave={handleSaveUser}
+        user={editingUser}
       />
     </div>
   );

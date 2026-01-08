@@ -44,7 +44,8 @@ export function Sidebar({ className }: SidebarProps) {
               Ventas
             </Link>
             <Link
-              href="#"
+              href="/clientes"
+              target="_blank"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <Users className="h-4 w-4" />

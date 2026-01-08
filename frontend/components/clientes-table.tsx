@@ -12,30 +12,29 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
-interface Cliente {
+interface User {
   id: number;
-  nombre: string;
+  name: string;
   email: string;
-  telefono: string;
-  direccion: string;
-  fecha_registro: string;
-  total_compras: number;
-  avatar?: string;
+  telefono: string | null;
+  direccion: string | null;
+  role: string | null;
+  active: boolean;
 }
 
 interface ClientesTableProps {
-  clientes: Cliente[];
-  onEdit: (cliente: Cliente) => void;
+  users: User[];
+  onEdit: (user: User) => void;
   onDelete: (id: number) => void;
 }
 
-export function ClientesTable({ clientes, onEdit, onDelete }: ClientesTableProps) {
+export function ClientesTable({ users, onEdit, onDelete }: ClientesTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredClientes = clientes.filter(cliente =>
-    cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.telefono.includes(searchTerm)
+  const filteredUsers = users.filter(user =>
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.telefono && user.telefono.includes(searchTerm))
   );
 
   return (
@@ -60,40 +59,40 @@ export function ClientesTable({ clientes, onEdit, onDelete }: ClientesTableProps
       <CardContent>
         <ScrollArea className="h-[400px] w-full">
           <div className="space-y-3">
-            {filteredClientes.map((cliente) => (
+            {filteredUsers.map((user) => (
               <div
-                key={cliente.id}
+                key={user.id}
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={cliente.avatar || "/placeholder-user.jpg"} alt={cliente.nombre} />
+                    <AvatarImage src="/placeholder-user.jpg" alt={user.name} />
                     <AvatarFallback>
                       <User className="h-6 w-6" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-1">
-                    <div className="font-medium">{cliente.nombre}</div>
-                    <div className="text-sm text-muted-foreground">{cliente.email}</div>
-                    <div className="text-xs text-muted-foreground">{cliente.telefono}</div>
+                    <div className="font-medium">{user.name}</div>
+                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                    <div className="text-xs text-muted-foreground">{user.telefono || 'Sin teléfono'}</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end space-y-2">
-                  <Badge variant="secondary">
-                    ${cliente.total_compras.toFixed(2)}
+                  <Badge variant={user.active ? "default" : "secondary"}>
+                    {user.active ? "Activo" : "Inactivo"}
                   </Badge>
                   <div className="text-xs text-muted-foreground">
-                    Registrado: {new Date(cliente.fecha_registro).toLocaleDateString()}
+                    Rol: {user.role || 'Sin rol'}
                   </div>
                   <div className="text-xs text-muted-foreground max-w-xs truncate">
-                    {cliente.direccion}
+                    {user.direccion || 'Sin dirección'}
                   </div>
                 </div>
                 <div className="flex space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onEdit(cliente)}
+                    onClick={() => onEdit(user)}
                     className="flex items-center space-x-2"
                   >
                     <Edit className="h-4 w-4" />
@@ -102,7 +101,7 @@ export function ClientesTable({ clientes, onEdit, onDelete }: ClientesTableProps
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => onDelete(cliente.id)}
+                    onClick={() => onDelete(user.id)}
                     className="flex items-center space-x-2"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -114,9 +113,9 @@ export function ClientesTable({ clientes, onEdit, onDelete }: ClientesTableProps
           </div>
         </ScrollArea>
         
-        {filteredClientes.length === 0 && (
+        {filteredUsers.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            No se encontraron clientes
+            No se encontraron usuarios
           </div>
         )}
       </CardContent>
@@ -128,12 +127,12 @@ export function ClienteModal({
   isOpen,
   onClose,
   onSave,
-  cliente = null
+  user = null
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Omit<Cliente, 'id' | 'fecha_registro' | 'total_compras'>) => void;
-  cliente?: Cliente | null;
+  onSave: (data: Omit<User, 'id' | 'role' | 'active'> & { password?: string; role?: string; active?: boolean }) => void;
+  user?: User | null;
 }) {
   if (!isOpen) return null;
 
@@ -141,31 +140,34 @@ export function ClienteModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{cliente ? 'Editar Cliente' : 'Nuevo Cliente'}</CardTitle>
+          <CardTitle>{user ? 'Editar Usuario' : 'Nuevo Usuario'}</CardTitle>
           <CardDescription>
-            {cliente ? 'Actualiza la información del cliente' : 'Ingresa los datos del nuevo cliente'}
+            {user ? 'Actualiza la información del usuario' : 'Ingresa los datos del nuevo usuario'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            const clienteData = {
-              nombre: formData.get('nombre') as string,
+            const userData = {
+              name: formData.get('name') as string,
               email: formData.get('email') as string,
               telefono: formData.get('telefono') as string,
               direccion: formData.get('direccion') as string,
+              password: formData.get('password') as string || undefined,
+              role: formData.get('role') as string || undefined,
+              active: formData.get('active') === 'on',
             };
-            onSave(clienteData);
+            onSave(userData);
           }} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre</Label>
+              <Label htmlFor="name">Nombre</Label>
               <Input
-                id="nombre"
-                name="nombre"
-                defaultValue={cliente?.nombre || ''}
+                id="name"
+                name="name"
+                defaultValue={user?.name || ''}
                 required
-                placeholder="Nombre completo del cliente"
+                placeholder="Nombre completo del usuario"
               />
             </div>
             <div className="space-y-2">
@@ -174,7 +176,7 @@ export function ClienteModal({
                 id="email"
                 name="email"
                 type="email"
-                defaultValue={cliente?.email || ''}
+                defaultValue={user?.email || ''}
                 required
                 placeholder="email@ejemplo.com"
               />
@@ -184,8 +186,7 @@ export function ClienteModal({
               <Input
                 id="telefono"
                 name="telefono"
-                defaultValue={cliente?.telefono || ''}
-                required
+                defaultValue={user?.telefono || ''}
                 placeholder="+54 9 11 1234-5678"
               />
             </div>
@@ -194,10 +195,39 @@ export function ClienteModal({
               <Input
                 id="direccion"
                 name="direccion"
-                defaultValue={cliente?.direccion || ''}
-                required
+                defaultValue={user?.direccion || ''}
                 placeholder="Dirección completa"
               />
+            </div>
+            {!user && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required={!user}
+                  placeholder="Contraseña"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="role">Rol</Label>
+              <Input
+                id="role"
+                name="role"
+                defaultValue={user?.role || ''}
+                placeholder="Rol del usuario"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="active"
+                name="active"
+                type="checkbox"
+                defaultChecked={user?.active ?? true}
+              />
+              <Label htmlFor="active">Activo</Label>
             </div>
             <Separator />
             <div className="flex justify-end space-x-2 pt-4">
@@ -209,7 +239,7 @@ export function ClienteModal({
                 Cancelar
               </Button>
               <Button type="submit">
-                {cliente ? 'Actualizar' : 'Crear'}
+                {user ? 'Actualizar' : 'Crear'}
               </Button>
             </div>
           </form>

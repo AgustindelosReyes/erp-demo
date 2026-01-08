@@ -41,6 +41,8 @@ class UserUpdateRequest extends FormRequest
             'role' => ['required', 'string', Rule::exists('roles', 'name')],
             // El estado 'active' es requerido y debe ser un booleano.
             'active' => ['required', 'boolean'],
+            'telefono' => ['nullable', 'string'],
+            'direccion' => ['nullable', 'string'],
         ];
     }
 }

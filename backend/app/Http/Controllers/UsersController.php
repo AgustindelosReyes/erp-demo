@@ -20,7 +20,7 @@ class UsersController extends Controller
     {
         $perPage = 20;
         $users = User::with('roles')
-            ->select('id','name','email','active')
+            ->select('id','name','email','active','telefono','direccion')
             ->paginate($perPage);
 
         $data = $users->through(function($user) {
@@ -28,8 +28,10 @@ class UsersController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
                 // Extrae el primer rol o null si no tiene
-                'role' => $user->roles->first()?->name ?? null, 
+                'role' => $user->roles->first()?->name ?? null,
                 'active' => (bool) $user->active,
             ];
         });
@@ -54,8 +56,10 @@ class UsersController extends Controller
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password']), 
+            'password' => Hash::make($data['password']),
             'active' => $data['active'],
+            'telefono' => $data['telefono'] ?? null,
+            'direccion' => $data['direccion'] ?? null,
         ]);
         $user->assignRole($data['role']);
         
@@ -68,6 +72,8 @@ class UsersController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
                 'role' => $user->roles->first()?->name,
                 'active' => (bool) $user->active,
             ]
@@ -87,7 +93,9 @@ class UsersController extends Controller
         // Asignación directa de propiedades antes de guardar
         $user->name = $data['name'];
         $user->email = $data['email'];
-        $user->active = (bool) $data['active']; 
+        $user->active = (bool) $data['active'];
+        $user->telefono = $data['telefono'] ?? null;
+        $user->direccion = $data['direccion'] ?? null;
 
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
@@ -97,6 +105,8 @@ class UsersController extends Controller
         Log::info("Intentando actualizar usuario ID: {$user->id} via save()", [
             'name' => $user->name,
             'email' => $user->email,
+            'telefono' => $user->telefono,
+            'direccion' => $user->direccion,
             'active' => $user->active,
         ]);
         
@@ -121,11 +131,13 @@ class UsersController extends Controller
         ]);
         
         return response()->json([
-            'message' => 'Usuario actualizado', 
+            'message' => 'Usuario actualizado',
             'data' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
                 'role' => $user->roles->first()?->name,
                 'active' => (bool) $user->active,
             ]
@@ -173,6 +185,8 @@ class UsersController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'telefono' => $user->telefono,
+                'direccion' => $user->direccion,
                 'role' => $user->roles->first()?->name,
                 'active' => (bool) $user->active,
             ]

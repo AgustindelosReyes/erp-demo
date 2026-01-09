@@ -1,11 +1,16 @@
+"use client"
+
 import type React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { LayoutDashboard, Package, ShoppingCart, Users, BarChart3, Settings, PaintBucket } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function Sidebar({ className }: SidebarProps) {
+  const pathname = usePathname()
+
   return (
     <div
       className={cn(
@@ -23,15 +28,25 @@ export function Sidebar({ className }: SidebarProps) {
           </div>
           <div className="space-y-1">
             <Link
-              href="#"
-              className="flex items-center gap-3 rounded-lg bg-sidebar-accent px-3 py-2 text-sidebar-accent-foreground transition-all hover:text-sidebar-accent-foreground"
+              href="/"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                pathname === "/"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
             >
               <LayoutDashboard className="h-4 w-4" />
               Dashboard
             </Link>
             <Link
-              href="#"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              href="/inventario"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                pathname === "/inventario"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
             >
               <Package className="h-4 w-4" />
               Inventario
@@ -44,8 +59,13 @@ export function Sidebar({ className }: SidebarProps) {
               Ventas
             </Link>
             <Link
-              href="#"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              href="/clientes"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                pathname === "/clientes"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
             >
               <Users className="h-4 w-4" />
               Clientes

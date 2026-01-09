@@ -18,5 +18,5 @@ RUN npm run build
 # Expose port 3000
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application in development mode with hot reload
+CMD ["npm", "run", "dev"]

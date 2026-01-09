@@ -1,23 +1,70 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { StockCard } from "@/components/stock-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, TrendingUp, Users } from "lucide-react"
+import { DollarSign, TrendingUp, Users, AlertTriangle, Loader2 } from "lucide-react"
 import { useAuth } from '@/lib/auth-context'
+
+interface DashboardStats {
+  ventas_totales: number
+  count_ventas: number
+  ventas_hoy: number
+  ventas_hoy_total: number
+  pedidos_activos: number
+  alertas_stock: number
+  actividad_reciente: {
+    id: number
+    tipo: string
+    descripcion: string
+    monto: number
+    fecha: string
+  }[]
+}
 
 export default function DashboardPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loadingStats, setLoadingStats] = useState(true)
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login')
     }
   }, [user, isLoading, router])
+
+  useEffect(() => {
+    if (user) {
+      const fetchStats = async () => {
+        try {
+          const response = await fetch(`${API_URL}/movements/stats/summary`, {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+            },
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            setStats(data.data)
+          }
+        } catch (error) {
+          console.error("Error fetching stats:", error)
+        } finally {
+          setLoadingStats(false)
+        }
+      }
+
+      fetchStats()
+    }
+  }, [user])
 
   if (isLoading) {
     return <div>Cargando...</div>
@@ -26,6 +73,28 @@ export default function DashboardPage() {
   if (!user) {
     return null
   }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+
+    if (diffMins < 1) return 'Hace un momento'
+    if (diffMins < 60) return `Hace ${diffMins} min`
+    if (diffHours < 24) return `Hace ${diffHours} h`
+    return date.toLocaleDateString('es-AR')
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <Sidebar />
@@ -35,7 +104,13 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between space-y-2 mb-8">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">Última sincronización: Hoy, 09:41 AM</span>
+              {loadingStats ? (
+                <span className="text-sm text-muted-foreground">Actualizando...</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  Última sincronización: {new Date().toLocaleTimeString('es-AR')}
+                </span>
+              )}
             </div>
           </div>
 
@@ -46,8 +121,14 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$45,231.89</div>
-                <p className="text-xs text-muted-foreground">+20.1% respecto al mes pasado</p>
+                {loadingStats ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{formatCurrency(stats?.ventas_totales || 0)}</div>
+                    <p className="text-xs text-muted-foreground">{stats?.count_ventas || 0} ventas completadas</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -56,8 +137,14 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">+573</div>
-                <p className="text-xs text-muted-foreground">+201 desde la última hora</p>
+                {loadingStats ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">+{stats?.pedidos_activos || 0}</div>
+                    <p className="text-xs text-muted-foreground">Pedidos pendientes</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -66,18 +153,32 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">+12</div>
-                <p className="text-xs text-muted-foreground">+19% respecto a ayer</p>
+                {loadingStats ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">+{stats?.ventas_hoy || 0}</div>
+                    <p className="text-xs text-muted-foreground">{formatCurrency(stats?.ventas_hoy_total || 0)} hoy</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Alertas</CardTitle>
-                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                <AlertTriangle className={`h-4 w-4 ${stats?.alertas_stock ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">Requieren atención inmediata</p>
+                {loadingStats ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{stats?.alertas_stock || 0}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {stats?.alertas_stock ? 'Requieren atención inmediata' : 'Sin alertas'}
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -91,29 +192,32 @@ export default function DashboardPage() {
                 <CardTitle>Actividad Reciente</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-8">
-                  <div className="flex items-center">
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">Venta #3201</p>
-                      <p className="text-sm text-muted-foreground">Juan Pérez - $1,200</p>
-                    </div>
-                    <div className="ml-auto font-medium text-sm text-muted-foreground">Hace 2 min</div>
+                {loadingStats ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="flex items-center">
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">Stock Actualizado</p>
-                      <p className="text-sm text-muted-foreground">Lote #442 ingresado</p>
-                    </div>
-                    <div className="ml-auto font-medium text-sm text-muted-foreground">Hace 15 min</div>
+                ) : stats?.actividad_reciente && stats.actividad_reciente.length > 0 ? (
+                  <div className="space-y-8">
+                    {stats?.actividad_reciente?.map((actividad: { id: number; tipo: string; descripcion: string; monto: number; fecha: string }) => (
+                      <div key={actividad.id} className="flex items-center">
+                        <div className="ml-4 space-y-1">
+                          <p className="text-sm font-medium leading-none">{actividad.tipo}</p>
+                          <p className="text-sm text-muted-foreground">{actividad.descripcion}</p>
+                        </div>
+                        <div className="ml-auto font-medium text-sm">
+                          {formatCurrency(actividad.monto)}
+                        </div>
+                        <div className="ml-2 text-xs text-muted-foreground">
+                          {getTimeAgo(actividad.fecha)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center">
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">Nuevo Cliente</p>
-                      <p className="text-sm text-muted-foreground">Constructora del Norte</p>
-                    </div>
-                    <div className="ml-auto font-medium text-sm text-muted-foreground">Hace 45 min</div>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No hay actividad reciente
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

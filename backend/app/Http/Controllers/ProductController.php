@@ -88,4 +88,41 @@ class ProductController extends Controller
         $product->delete();
         return response()->noContent();
     }
+
+    // Endpoint de estadísticas para el dashboard
+    public function stats()
+    {
+        $totalProducts = Product::count();
+        
+        $lowStock = Product::whereRaw('stock <= stock_min')->count();
+        
+        $criticalStock = Product::whereRaw('stock < (stock_min * 0.5)')->count();
+        
+        // Productos con stock bajo (para mostrar en el dashboard)
+        $lowStockProducts = Product::whereRaw('stock <= stock_min')
+            ->orderBy('stock', 'asc')
+            ->take(5)
+            ->get(['id', 'name', 'stock', 'stock_min', 'price'])
+            ->map(function ($product) {
+                $percentage = $product->stock_min > 0 
+                    ? min(($product->stock / $product->stock_min) * 100, 100) 
+                    : 0;
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'stock' => $product->stock,
+                    'stock_min' => $product->stock_min,
+                    'percentage' => $percentage,
+                ];
+            });
+
+        return response()->json([
+            'data' => [
+                'total_products' => $totalProducts,
+                'low_stock' => $lowStock,
+                'critical_stock' => $criticalStock,
+                'low_stock_products' => $lowStockProducts,
+            ]
+        ]);
+    }
 }

@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             MovementSeeder::class,
             MovementItemSeeder::class,
+            IntegrationsSeeder::class,
         ]);
 
         // Asignar rol Admin al usuario de prueba

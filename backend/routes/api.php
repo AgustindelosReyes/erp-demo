@@ -6,7 +6,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\MovementController;
-use App\Http\Controllers\DashboardController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -15,9 +14,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::apiResource('products', ProductController::class);
-    Route::post('/movements', [MovementController::class, 'store']);
-    Route::get('/sales/summary', [MovementController::class, 'salesSummary']);
-    Route::get('/sales/best-selling-products', [MovementController::class, 'bestSellingProducts']);
+    Route::apiResource('movements', MovementController::class);
 
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/users', [UsersController::class, 'index']);

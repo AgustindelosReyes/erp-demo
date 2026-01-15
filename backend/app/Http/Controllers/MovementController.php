@@ -2,204 +2,266 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreMovementRequest;
 use App\Models\Movement;
 use App\Models\MovementItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class MovementController extends Controller
 {
-    public function store(StoreMovementRequest $request)
+    public function index(Request $request)
     {
-        $movement_type = $request->movement_type;
+        $query = Movement::with(['user', 'product', 'items'])
+            ->where('movement_type', 'venta')
+            ->orderBy('id', 'desc');
 
-        if ($movement_type === 'ajuste') {
+        // Filtrar por estado si se proporciona
+        if ($request->has('status') && $request->status !== 'todos') {
+            $query->where('status', $request->status);
+        }
+
+        // Filtrar por período
+        if ($request->periodo === 'hoy') {
+            $query->whereDate('created_at', today());
+        } elseif ($request->periodo === 'semana') {
+            $query->whereBetween('created_at', [now()->subWeek(), now()]);
+        } elseif ($request->periodo === 'mes') {
+            $query->whereBetween('created_at', [now()->subMonth(), now()]);
+        }
+
+        $movements = $query->paginate(15);
+
+        // Transformar datos para el frontend
+        $data = $movements->map(function ($movement) {
+            $total = $movement->items->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+
+            $subtotal = $total; // Sin descuento por ahora
+            $descuento = 0; // Por implementar
+
+            return [
+                'id' => $movement->id,
+                'numeroVenta' => 'VTA-' . str_pad($movement->id, 4, '0', STR_PAD_LEFT),
+                'fecha' => $movement->created_at,
+                'cliente' => 'Cliente General', // Por implementar si hay tabla de clientes
+                'productos' => $movement->items->sum('quantity'),
+                'subtotal' => $subtotal,
+                'descuento' => $descuento,
+                'total' => $subtotal - $descuento,
+                'estado' => $movement->status === 'completado' ? 'completada' : 'pendiente',
+                'metodoPago' => 'Efectivo', // Por implementar
+                'vendedor' => $movement->user ? $movement->user->name : 'N/A',
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+            'pagination' => [
+                'total' => $movements->total(),
+                'per_page' => $movements->perPage(),
+                'current_page' => $movements->currentPage(),
+                'last_page' => $movements->lastPage(),
+            ],
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        DB::transaction(function () use ($request) {
             $product = Product::findOrFail($request->product_id);
 
-            DB::beginTransaction();
-            try {
-                $product->update(['stock' => $request->adjusted_stock]);
-
-                $movement = Movement::create([
-                    'user_id' => Auth::id(),
-                    'product_id' => $request->product_id,
-                    'quantity' => $request->adjusted_stock,
-                    'status' => 'completado',
-                    'movement_type' => 'ajuste',
-                ]);
-
-                MovementItem::create([
-                    'movement_id' => $movement->id,
-                    'product_id' => $request->product_id,
-                    'quantity' => $request->adjusted_stock,
-                    'price' => 0,
-                ]);
-
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['error' => 'Failed to create adjustment movement'], 500);
-            }
-
-            return response()->json(['message' => 'Adjustment movement registered successfully'], 201);
-        }
-
-        $items = $request->items;
-
-        // Get all products involved
-        $productIds = collect($items)->pluck('product_id')->unique();
-        $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
-
-        // Check stock availability only for venta
-        if ($movement_type === 'venta') {
-            $insufficientStock = [];
-            foreach ($items as $item) {
-                $product = $products[$item['product_id']] ?? null;
-                if (!$product || $product->stock < $item['quantity']) {
-                    $insufficientStock[] = $product ? $product->name : 'Unknown product';
-                }
-            }
-
-            if (!empty($insufficientStock)) {
-                return response()->json([
-                    'message' => 'Insufficient stock for the following products: ' . implode(', ', $insufficientStock)
-                ], 400);
-            }
-        }
-
-        // Proceed with transaction
-        DB::beginTransaction();
-        try {
-            $totalQuantity = collect($items)->sum('quantity');
-            $firstProductId = $items[0]['product_id'];
-
-            // Create Movement
+            // Crear movement
             $movement = Movement::create([
-                'user_id' => Auth::id(),
-                'product_id' => $firstProductId,
-                'quantity' => $totalQuantity,
+                'user_id' => $request->user()->id,
+                'product_id' => $request->product_id,
+                'quantity' => $request->quantity,
                 'status' => 'completado',
-                'movement_type' => $movement_type,
+                'movement_type' => 'venta',
             ]);
 
-            // Create MovementItems
-            foreach ($items as $item) {
-                MovementItem::create([
-                    'movement_id' => $movement->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                ]);
-            }
+            // Crear movement item
+            MovementItem::create([
+                'movement_id' => $movement->id,
+                'product_id' => $request->product_id,
+                'quantity' => $request->quantity,
+                'price' => $product->price,
+            ]);
 
-            // Adjust stock
-            foreach ($items as $item) {
-                if ($movement_type === 'venta') {
-                    $products[$item['product_id']]->decrement('stock', $item['quantity']);
-                } else {
-                    $products[$item['product_id']]->increment('stock', $item['quantity']);
+            // Actualizar stock
+            $product->stock -= $request->quantity;
+            $product->save();
+
+            return $movement;
+        });
+
+        return response()->json(['message' => 'Venta registrada correctamente'], 201);
+    }
+
+    public function show($id)
+    {
+        $movement = Movement::with(['user', 'product', 'items.product'])->find($id);
+
+        if (!$movement) {
+            return response()->json(['message' => 'Venta no encontrada'], 404);
+        }
+
+        $total = $movement->items->sum(function ($item) {
+            return $item->quantity * $item->price;
+        });
+
+        return response()->json([
+            'data' => [
+                'id' => $movement->id,
+                'numeroVenta' => 'VTA-' . str_pad($movement->id, 4, '0', STR_PAD_LEFT),
+                'fecha' => $movement->created_at,
+                'cliente' => 'Cliente General',
+                'productos' => $movement->items->sum('quantity'),
+                'subtotal' => $total,
+                'descuento' => 0,
+                'total' => $total,
+                'estado' => $movement->status === 'completado' ? 'completada' : 'pendiente',
+                'metodoPago' => 'Efectivo',
+                'vendedor' => $movement->user ? $movement->user->name : 'N/A',
+                'items' => $movement->items->map(function ($item) {
+                    return [
+                        'producto' => $item->product->name,
+                        'cantidad' => $item->quantity,
+                        'precio' => $item->price,
+                        'subtotal' => $item->quantity * $item->price,
+                    ];
+                }),
+            ],
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $movement = Movement::find($id);
+
+        if (!$movement) {
+            return response()->json(['message' => 'Venta no encontrada'], 404);
+        }
+
+        // Por ahora solo actualizamos el estado
+        $validator = Validator::make($request->all(), [
+            'status' => 'sometimes|in:pendiente,completado',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($request->has('status')) {
+            $movement->status = $request->status;
+            $movement->save();
+        }
+
+        return response()->json(['message' => 'Venta actualizada', 'data' => $movement]);
+    }
+
+    public function destroy($id)
+    {
+        $movement = Movement::find($id);
+
+        if (!$movement) {
+            return response()->json(['message' => 'Venta no encontrada'], 404);
+        }
+
+        // Restaurar stock si ya estaba completado
+        if ($movement->status === 'completado') {
+            foreach ($movement->items as $item) {
+                $product = Product::find($item->product_id);
+                if ($product) {
+                    $product->stock += $item->quantity;
+                    $product->save();
                 }
             }
-
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Failed to create movement'], 500);
         }
 
-        $message = $movement_type === 'venta' ? 'Sale movement registered successfully' : 'Entry movement registered successfully';
-        return response()->json(['message' => $message], 201);
+        $movement->delete();
+
+        return response()->noContent();
     }
 
-    public function salesSummary(Request $request)
+    // Endpoint de estadísticas para el dashboard
+    public function stats()
     {
-        $validator = Validator::make($request->all(), [
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:1900|max:' . (date('Y') + 10),
-            'comparePrevious' => 'sometimes|in:true,false,1,0',
-        ], [
-            'month.required' => 'The month field is required.',
-            'month.integer' => 'The month must be an integer.',
-            'month.min' => 'The month must be at least 1.',
-            'month.max' => 'The month may not be greater than 12.',
-            'year.required' => 'The year field is required.',
-            'year.integer' => 'The year must be an integer.',
-            'year.min' => 'The year must be at least 1900.',
-            'year.max' => 'The year may not be greater than ' . (date('Y') + 10) . '.',
-            'comparePrevious.in' => 'The comparePrevious field must be one of: true, false, 1, 0.',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 400);
-        }
-
-        $result = DB::table('movements')
-            ->join('movement_items', 'movements.id', '=', 'movement_items.movement_id')
-            ->where('movements.movement_type', 'venta')
-            ->whereMonth('movements.created_at', $request->month)
-            ->whereYear('movements.created_at', $request->year)
-            ->selectRaw('COALESCE(SUM(movement_items.price * movement_items.quantity), 0) as totalSales, COALESCE(COUNT(DISTINCT movements.id), 0) as totalMovements')
-            ->first();
-
-        $totalSales = $result->totalSales ?? 0;
-        $totalMovements = $result->totalMovements ?? 0;
-
-        $response = [
-            'totalSales' => $totalSales,
-            'totalMovements' => $totalMovements,
-        ];
-
-        if ($request->boolean('comparePrevious')) {
-            // Calculate previous month and year
-            $prevMonth = $request->month > 1 ? $request->month - 1 : 12;
-            $prevYear = $request->month > 1 ? $request->year : $request->year - 1;
-
-            $prevResult = DB::table('movements')
-                ->join('movement_items', 'movements.id', '=', 'movement_items.movement_id')
-                ->where('movements.movement_type', 'venta')
-                ->whereMonth('movements.created_at', $prevMonth)
-                ->whereYear('movements.created_at', $prevYear)
-                ->selectRaw('COALESCE(SUM(movement_items.price * movement_items.quantity), 0) as totalSales, COALESCE(COUNT(DISTINCT movements.id), 0) as totalMovements')
-                ->first();
-
-            $previousTotalSales = $prevResult->totalSales ?? 0;
-            $previousTotalMovements = $prevResult->totalMovements ?? 0;
-
-            $response['previousTotalSales'] = $previousTotalSales;
-            $response['previousTotalMovements'] = $previousTotalMovements;
-            $response['salesDifference'] = $totalSales - $previousTotalSales;
-            $response['movementsDifference'] = $totalMovements - $previousTotalMovements;
-        }
-
-        return response()->json($response);
-    }
-
-    public function bestSellingProducts(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'limit' => 'sometimes|integer|min:1',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 400);
-        }
-
-        $limit = $request->query('limit', 10);
-
-        $result = DB::table('movement_items')
-            ->join('movements', 'movement_items.movement_id', '=', 'movements.id')
-            ->join('products', 'movement_items.product_id', '=', 'products.id')
-            ->where('movements.movement_type', 'venta')
-            ->select('movement_items.product_id', 'products.name as product_name', DB::raw('SUM(movement_items.quantity) as total_quantity'))
-            ->groupBy('movement_items.product_id', 'products.name')
-            ->orderBy('total_quantity', 'desc')
-            ->limit($limit)
+        // Ventas totales completadas
+        $ventasCompletadas = Movement::where('movement_type', 'venta')
+            ->where('status', 'completado')
+            ->with('items')
             ->get();
 
-        return response()->json($result, 200);
+        $totalVentas = $ventasCompletadas->sum(function ($movement) {
+            return $movement->items->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+        });
+        $countVentas = $ventasCompletadas->count();
+
+        // Ventas hoy
+        $ventasHoy = Movement::where('movement_type', 'venta')
+            ->where('status', 'completado')
+            ->whereDate('created_at', today())
+            ->with('items')
+            ->get();
+
+        $ventasHoyCount = $ventasHoy->count();
+        $ventasHoyTotal = $ventasHoy->sum(function ($movement) {
+            return $movement->items->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+        });
+
+        // Pedidos activos (pendientes)
+        $pedidosActivos = Movement::where('movement_type', 'venta')
+            ->where('status', 'pendiente')
+            ->count();
+
+        // Productos con stock bajo
+        $alertasStock = Product::whereRaw('stock <= stock_min')->count();
+
+        // Actividad reciente (últimas 5 ventas)
+        $actividadReciente = Movement::where('movement_type', 'venta')
+            ->with(['user', 'items.product'])
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($movement) {
+                $total = $movement->items->sum(function ($item) {
+                    return $item->quantity * $item->price;
+                });
+                return [
+                    'id' => $movement->id,
+                    'tipo' => 'Venta #' . str_pad($movement->id, 4, '0', STR_PAD_LEFT),
+                    'descripcion' => $movement->items->first()?->product?->name ?? 'Producto',
+                    'monto' => $total,
+                    'fecha' => $movement->created_at,
+                ];
+            });
+
+        return response()->json([
+            'data' => [
+                'ventas_totales' => $totalVentas,
+                'count_ventas' => $countVentas,
+                'ventas_hoy' => $ventasHoyCount,
+                'ventas_hoy_total' => $ventasHoyTotal,
+                'pedidos_activos' => $pedidosActivos,
+                'alertas_stock' => $alertasStock,
+                'actividad_reciente' => $actividadReciente,
+            ]
+        ]);
     }
 }
